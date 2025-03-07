@@ -2,36 +2,26 @@ const jwt = require('jsonwebtoken');
 const userModel = require('../models/user.model');
 const blacklistToken = require('../models/blacklistToken.model');
 
-
-
-module.exports.userauth = async (req, res, next) => {
+module.exports.authuser = async (req, res, next) => {
     try {
-        const token = req.cookies.token || req.headers.authorization.split(' ')[1];
+        const token = req.cookies.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
         if (!token) {
-            return res.status(401).json({
-                message: 'Unauthorized'
-            });
+            console.error('Token not found');
+            return res.status(401).send({ error: 'Token not found' });
         }
-        const isTokenBlacklisted = await blacklistToken.findOne({
-            token
-        });
-        if (isTokenBlacklisted) {
-            return res.status(401).json({
-                message: 'Unauthorized'
-            });
+        
+        let decoded;
+        try {
+            decoded = jwt.verify(token, process.env.JWT_SECRET);
+        } catch (err) {
+            console.error('Invalid token:', err.message);
+            return res.status(401).send({ error: 'Invalid token' });
         }
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await userModel.findById(decoded.userId);
-        if (!user) {
-            return res.status(404).json({
-                message: 'User not found'
-            });
-        }
-        req.user = user;
+
+        req.user = decoded;
         next();
     } catch (error) {
-        res.status(500).json({
-            message: error.message
-        });
+        console.error('Error in user side auth middleware:', error.message);
+        res.status(500).send({ error: error.message });
     }
 }
