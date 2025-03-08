@@ -6,6 +6,7 @@ const blacklistToken = require('../models/blacklistToken.model');
 const { subscribeToQueue } = require('../service/rabbit');
 const EventEmitter = require('events');
 const rideEvent = new EventEmitter();
+const nodemailer = require('nodemailer'); // new import for nodemailer
 
 module.exports.register = async (req, res) => {
   try {
@@ -25,6 +26,25 @@ module.exports.register = async (req, res) => {
       password: hashedPassword
     });
     await newUser.save();
+
+    // New: Send welcome email using nodemailer
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER, // set your email user in env
+        pass: process.env.EMAIL_PASS  // set your email password in env
+      },
+      tls: {
+        rejectUnauthorized: false // allow self-signed certificate
+      }
+    });
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Welcome to Our Service',
+      text: 'Thank you for registering with us!'
+    });
+
     const token = jwt.sign({
         userId: newUser._id
         }, process.env.JWT_SECRET, {
